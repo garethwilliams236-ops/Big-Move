@@ -203,7 +203,7 @@ end $$;
 -- First household member. Kristin is added from the app's Settings tab.
 -- ---------------------------------------------------------------
 insert into public.members (email, name) values
-  ('gwilliams@ardentadvisors.com', 'Gareth')
+  ('garethwilliams236@gmail.com', 'Gareth')
 on conflict (email) do nothing;
 
 -- Big Move — starter checklist (Oct 2026 → Mar 2027)
