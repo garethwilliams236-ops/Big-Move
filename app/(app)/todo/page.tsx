@@ -89,7 +89,7 @@ export default function TodoPage() {
                   <TaskRow
                     key={t.id}
                     t={t}
-                    onOpen={() => setEditing(t)}
+                    onOpen={() => setEditing(t)} onDelete={() => remove(t.id)}
                     onToggle={() => save({ status: t.status === "done" ? "todo" : "done" }, t.id)}
                   />
                 ))}

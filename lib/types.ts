@@ -87,6 +87,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   author: string | null;
+  thread: string;
   created_at: string;
 };
 

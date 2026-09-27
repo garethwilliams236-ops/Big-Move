@@ -120,7 +120,7 @@ export default function DiaryPage() {
               {dayItems.length === 0 ? (
                 <p className="text-sm text-muted p-3">Nothing on this day.</p>
               ) : (
-                dayItems.map((t) => <TaskRow key={t.id} t={t} showDate={false} onOpen={() => setEditing(t)} onToggle={() => toggle(t)} />)
+                dayItems.map((t) => <TaskRow key={t.id} t={t} showDate={false} onOpen={() => setEditing(t)} onDelete={() => remove(t.id)} onToggle={() => toggle(t)} />)
               )}
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function DiaryPage() {
                 {d === today ? "Today · " : ""}{longDate(d)}
               </h2>
               <div className="card divide-y divide-line overflow-hidden">
-                {items.map((t) => <TaskRow key={t.id} t={t} showDate={false} onOpen={() => setEditing(t)} onToggle={() => toggle(t)} />)}
+                {items.map((t) => <TaskRow key={t.id} t={t} showDate={false} onOpen={() => setEditing(t)} onDelete={() => remove(t.id)} onToggle={() => toggle(t)} />)}
               </div>
             </section>
           ))}

@@ -38,12 +38,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set in Vercel yet." }, { status: 500 });
   }
 
-  const { question, includeData } = (await req.json()) as { question: string; includeData?: boolean };
+  const { question, includeData, thread: rawThread } = (await req.json()) as { question: string; includeData?: boolean; thread?: string };
+  const thread = (rawThread || (name as string)).slice(0, 40);
   if (!question?.trim()) return NextResponse.json({ error: "Empty question" }, { status: 400 });
 
-  await sb.from("chat_messages").insert({ role: "user", content: question.trim(), author: name });
+  await sb.from("chat_messages").insert({ role: "user", content: question.trim(), author: name, thread });
 
-  const { data: history } = await sb.from("chat_messages").select("role,content,author").order("created_at", { ascending: false }).limit(20);
+  const { data: history } = await sb.from("chat_messages").select("role,content,author").eq("thread", thread).order("created_at", { ascending: false }).limit(20);
   const messages = (history ?? [])
     .reverse()
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.role === "user" ? `${m.author ?? "User"}: ${m.content}` : m.content }));
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   let system = `You are helping Gareth and Kristin, a UK couple, plan a house move. They are leaving a large family house in Fulham, London, and downsizing to a London flat plus a cottage or house in the countryside, depending on budget. They aim to have moved by the end of March 2027. Today is ${today}.
-Both of them use this shared chat; each question is prefixed with who asked it. Answer in British English, using UK law, tax, property practice and costs (SDLT in England, LTT in Wales, LBTT in Scotland; conveyancing, leasehold, EPCs, and so on). Be practical, concise and specific. Where something depends on facts you don't have, say what to check. You are not a lawyer, tax adviser or financial adviser, so flag when professional advice is needed.`;
+This is ${thread}'s conversation (Gareth and Kristin each have their own, and each can read the other's); each question is prefixed with who asked it. Answer in British English, using UK law, tax, property practice and costs (SDLT in England, LTT in Wales, LBTT in Scotland; conveyancing, leasehold, EPCs, and so on). Be practical, concise and specific. Where something depends on facts you don't have, say what to check. You are not a lawyer, tax adviser or financial adviser, so flag when professional advice is needed.`;
   if (includeData !== false) system += `\n\nCurrent data from their Big Move app:\n${await buildContext(sb)}`;
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -84,6 +85,6 @@ Both of them use this shared chat; each question is prefixed with who asked it. 
     return NextResponse.json({ error: e instanceof Error ? e.message : "Claude request failed" }, { status: 502 });
   }
 
-  await sb.from("chat_messages").insert({ role: "assistant", content: answer || "(no answer)", author: "Claude" });
+  await sb.from("chat_messages").insert({ role: "assistant", content: answer || "(no answer)", author: "Claude", thread });
   return NextResponse.json({ answer });
 }

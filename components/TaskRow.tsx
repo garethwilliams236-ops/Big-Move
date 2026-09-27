@@ -9,7 +9,19 @@ const ownerColour: Record<string, string> = {
   Both: "bg-brand-soft text-brand",
 };
 
-export function TaskRow({ t, onToggle, onOpen, showDate = true }: { t: Task; onToggle: () => void; onOpen: () => void; showDate?: boolean }) {
+export function TaskRow({
+  t,
+  onToggle,
+  onOpen,
+  onDelete,
+  showDate = true,
+}: {
+  t: Task;
+  onToggle: () => void;
+  onOpen: () => void;
+  onDelete?: () => void;
+  showDate?: boolean;
+}) {
   const overdue = t.status !== "done" && t.due_date && t.due_date < todayISO();
   return (
     <div className="flex items-start gap-3 px-3 py-2.5 hover:bg-black/[0.02]">
@@ -39,6 +51,20 @@ export function TaskRow({ t, onToggle, onOpen, showDate = true }: { t: Task; onT
           {t.status === "doing" && <span className="chip bg-accent-soft text-accent">In progress</span>}
         </div>
       </button>
+      {onDelete && (
+        <button
+          className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-danger hover:bg-danger/10"
+          aria-label="Delete task"
+          title="Delete"
+          onClick={() => {
+            if (window.confirm(`Delete "${t.title}"?`)) onDelete();
+          }}
+        >
+          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M4 6h12M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

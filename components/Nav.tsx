@@ -13,6 +13,7 @@ export const TABS = [
   { href: "/budget", label: "Budget" },
   { href: "/contacts", label: "Contacts" },
   { href: "/ask", label: "Ask Claude" },
+  { href: "/history", label: "History" },
   { href: "/settings", label: "Settings" },
 ];
 
