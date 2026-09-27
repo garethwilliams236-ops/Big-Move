@@ -3,6 +3,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
 
 export async function middleware(request: NextRequest) {
+  try {
+    return await handle(request);
+  } catch (e) {
+    console.error("middleware error", e);
+    // Fail open: pages still check the session themselves.
+    return NextResponse.next({ request });
+  }
+}
+
+async function handle(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -39,5 +49,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|api/).*)"],
 };
