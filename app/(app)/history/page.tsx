@@ -40,6 +40,36 @@ export default function HistoryPage() {
   const [area, setArea] = useState("");
   const [who, setWho] = useState("");
   const [limit, setLimit] = useState(200);
+  const [tick, setTick] = useState(0);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  async function reset(r: Entry) {
+    const what = r.action === "changed" ? "put these fields back to their old values" : r.action === "deleted" ? "restore this deleted item" : "remove this added item";
+    if (!window.confirm(`Reset: ${what}?\n\n${AREAS[r.table_name] ?? r.table_name}: ${r.label ?? ""}`)) return;
+    setBusyId(r.id);
+    const sb = supabaseBrowser();
+    const key = r.table_name === "members" ? "email" : "id";
+    let err: { message: string } | null = null;
+    if (r.action === "changed") {
+      const back = Object.fromEntries(Object.entries(r.changes as Record<string, { from: unknown }>).map(([k, v]) => [k, v?.from ?? null]));
+      const { data, error } = await sb.from(r.table_name).update(back).eq(key, r.row_id).select(key);
+      err = error ?? (data && data.length === 0 ? { message: "That item no longer exists — reset its deletion first." } : null);
+    } else if (r.action === "deleted") {
+      const old = { ...(r.changes as Record<string, unknown>) };
+      delete old.updated_at;
+      const { error } = await sb.from(r.table_name).insert(old);
+      err = error && /duplicate/i.test(error.message) ? { message: "That item already exists again." } : error;
+    } else {
+      const { error } = await sb.from(r.table_name).delete().eq(key, r.row_id);
+      err = error;
+    }
+    setBusyId(null);
+    if (err) setError(err.message);
+    else {
+      setError(null);
+      setTick((t) => t + 1);
+    }
+  }
 
   useEffect(() => {
     let q = supabaseBrowser().from("audit_log").select("*").order("at", { ascending: false }).limit(limit);
@@ -50,7 +80,7 @@ export default function HistoryPage() {
       else setRows(data ?? []);
       setLoading(false);
     });
-  }, [area, who, limit]);
+  }, [area, who, limit, tick]);
 
   const people = [...new Set(rows.map((r) => r.who).filter(Boolean))] as string[];
 
@@ -85,6 +115,16 @@ export default function HistoryPage() {
                   {r.who} ·{" "}
                   {new Date(r.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </span>
+                {r.row_id && (r.action !== "deleted" || r.changes) && (
+                  <button
+                    className="btn-ghost !px-2 !py-1 text-xs text-brand"
+                    disabled={busyId === r.id}
+                    onClick={() => reset(r)}
+                    title={r.action === "changed" ? "Put back the old values" : r.action === "deleted" ? "Restore this item" : "Remove this item"}
+                  >
+                    {busyId === r.id ? "…" : "↺ Reset"}
+                  </button>
+                )}
               </div>
               {r.action === "changed" && r.changes && (
                 <ul className="mt-1 ml-1 text-xs text-muted space-y-0.5">

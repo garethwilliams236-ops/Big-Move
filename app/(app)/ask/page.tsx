@@ -73,7 +73,7 @@ export default function AskPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)]">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)]">
       <PageHeader title="Ask Claude" subtitle="Separate conversations for each of you — both can read either">
         {messages.length > 0 && <button className="btn-ghost text-muted" onClick={clear}>Clear</button>}
       </PageHeader>

@@ -50,5 +50,5 @@ async function handle(request: NextRequest) {
 
 export const config = {
   runtime: "nodejs",
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|api/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|icon-512.png|apple-icon.png|manifest.webmanifest|api/).*)"],
 };
