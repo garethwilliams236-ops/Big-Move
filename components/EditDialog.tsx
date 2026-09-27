@@ -44,6 +44,12 @@ export function EditDialog({
 
   const set = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v }));
 
+  const dirty = fields.some((f) => String(values[f.key] ?? "") !== String(initial[f.key] ?? ""));
+  const requestClose = () => {
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    onClose();
+  };
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -60,15 +66,14 @@ export function EditDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center">
       <form
         onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
         className="bg-card w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 shadow-xl"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="btn-ghost" onClick={requestClose} aria-label="Close">✕</button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {fields.map((f) => {
@@ -130,7 +135,7 @@ export function EditDialog({
             </button>
           ) : <span />}
           <div className="flex gap-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn-ghost" onClick={requestClose}>Cancel</button>
             <button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save"}</button>
           </div>
         </div>
