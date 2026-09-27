@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #1f2a2e;
+  --color-muted: #5f6b70;
+  --color-line: #e3e0d8;
+  --color-paper: #faf8f3;
+  --color-card: #ffffff;
+  --color-brand: #2f5d50;
+  --color-brand-soft: #e3eee9;
+  --color-accent: #c8743a;
+  --color-accent-soft: #f7e7da;
+  --color-danger: #b33a3a;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body { background: var(--color-paper); color: var(--color-ink); }
+
+@utility card { @apply bg-card border border-line rounded-xl; }
+@utility btn-primary { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 bg-brand text-white hover:bg-brand/90; }
+@utility btn-ghost { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 text-ink hover:bg-black/5; }
+@utility btn-danger { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 text-danger hover:bg-danger/10; }
+@utility input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/15; }
+@utility label { @apply block text-xs font-medium text-muted mb-1; }
+@utility chip { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+@utility h1 { @apply text-2xl font-semibold tracking-tight; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
