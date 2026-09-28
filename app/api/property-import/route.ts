@@ -16,8 +16,8 @@ const FIELDS = {
   bathrooms: "integer",
   sq_ft: "integer internal floor area in sq ft (convert from sq m × 10.764 if only sq m given)",
   tenure: "Freehold | Leasehold | Share of freehold",
-  service_charge: "number GBP per year",
-  ground_rent: "number GBP per year",
+  service_charge: "number GBP per YEAR — if stated per month multiply by 12, per quarter by 4, per half-year by 2; if a range, use the higher figure",
+  ground_rent: "number GBP per YEAR (convert as for service charge); 0 if stated as peppercorn/none",
   council_tax_band: "single letter",
   epc: "rating letter, e.g. C",
   outside_space: "short description (garden, terrace, balcony…)",
@@ -26,7 +26,25 @@ const FIELDS = {
   pros: "key features as a short bullet list, one per line starting '- '",
 };
 
-// Pull the useful bits out of a listing page: structured data blobs + readable text.
+const FACT_WORDS =
+  /(service charge|maintenance charge|management fee|estate charge|ground rent|council tax|tenure|leasehold|freehold|share of freehold|years? (?:remaining|left|unexpired)|lease length|EPC|energy (?:performance|rating)|sq\.? ?ft|square feet|sq\.? ?m\b|parking|garage|garden|terrace|balcony)/gi;
+
+const FACT_KEYS =
+  /"((?:annual)?(?:ServiceCharge|serviceCharge|service_charge|GroundRent|groundRent|ground_rent)|councilTax(?:Band)?|council_tax_band|tenureType|tenure|yearsRemainingOnLease|leaseLength|lengthOfLease|groundRentReviewPeriod(?:InYears)?|domesticRates|epc(?:Rating)?|currentEnergyRating|floorArea|displaySize|sizeInSqFt)"\s*:\s*("(?:[^"\\]|\\.){0,120}"|[-0-9.]+|true|false|null|\{[^{}]{0,300}\})/g;
+
+// Details like service charge often sit deep in the page — pull them out wherever they are.
+function keyFacts(html: string, text: string) {
+  const facts = new Set<string>();
+  for (const m of html.matchAll(FACT_KEYS)) facts.add(`${m[1]}: ${m[2]}`);
+  for (const m of text.matchAll(FACT_WORDS)) {
+    const i = m.index ?? 0;
+    facts.add(text.slice(Math.max(0, i - 100), i + 180).trim());
+    if (facts.size > 80) break;
+  }
+  return [...facts].join("\n");
+}
+
+// Pull the useful bits out of a listing page: key facts + structured data blobs + readable text.
 function condense(html: string) {
   const parts: string[] = [];
   const grab = (re: RegExp) => {
@@ -46,7 +64,8 @@ function condense(html: string) {
     .replace(/&pound;/g, "£")
     .replace(/\s+/g, " ");
   parts.push(text);
-  return parts.join("\n\n").slice(0, 90000);
+  const facts = keyFacts(html, text);
+  return (`KEY FACTS FOUND ON PAGE (service charge, ground rent, tenure etc.):\n${facts || "(none found)"}\n\nFULL PAGE:\n` + parts.join("\n\n")).slice(0, 120000);
 }
 
 function parseJson(text: string): Record<string, unknown> | null {
@@ -74,7 +93,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Please paste a full web address starting with https://" }, { status: 400 });
   }
 
-  const instructions = `Extract the property listing details and reply with ONLY a JSON object using these keys (use null when not stated — never guess):
+  const instructions = `Extract the property listing details and reply with ONLY a JSON object using these keys (use null when not stated — never guess). Check the KEY FACTS section carefully for service charge, ground rent, tenure and council tax — these are often only mentioned there or in a "material information" / "costs" section:
 ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -112,7 +131,9 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
     // 2) If the site blocked us or nothing useful came back, let Claude fetch it.
     const parsed = answer ? parseJson(answer) : null;
-    if (!parsed || !parsed.asking_price) {
+    const leaseholdMissingCharge =
+      parsed && /lease/i.test(String(parsed.tenure ?? "")) && (parsed.service_charge == null || parsed.service_charge === "");
+    if (!parsed || !parsed.asking_price || leaseholdMissingCharge) {
       const r = await client.messages.create({
         model: MODEL,
         max_tokens: 2000,
@@ -120,7 +141,12 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
         messages: [{ role: "user", content: `Fetch ${target} and then:\n${instructions}` }],
       });
       const t = r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
-      if (parseJson(t)) answer = t;
+      const second = parseJson(t);
+      if (second) {
+        // Merge: keep first-pass values, fill any gaps from the second pass
+        const merged = { ...second, ...Object.fromEntries(Object.entries(parsed ?? {}).filter(([, v]) => v != null && v !== "")) };
+        answer = JSON.stringify(merged);
+      }
     }
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Claude request failed" }, { status: 502 });
