@@ -19,6 +19,7 @@ const FIELDS = {
   service_charge: "number GBP per YEAR — if stated per month multiply by 12, per quarter by 4, per half-year by 2; if a range, use the higher figure",
   ground_rent: "number GBP per YEAR (convert as for service charge); 0 if stated as peppercorn/none",
   council_tax_band: "single letter",
+  council_tax: "annual council tax amount in GBP if an actual £ figure is stated (convert monthly ×12); null if only the band is given",
   epc: "rating letter, e.g. C",
   outside_space: "short description (garden, terrace, balcony…)",
   parking: "short description",
@@ -156,14 +157,14 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
   if (!data) return NextResponse.json({ error: "Couldn't read that page. The site may block automated access — enter the details by hand." }, { status: 422 });
 
   // Keep only known keys, coerce numbers.
-  const nums = ["asking_price", "bedrooms", "bathrooms", "sq_ft", "service_charge", "ground_rent"];
+  const nums = ["asking_price", "bedrooms", "bathrooms", "sq_ft", "service_charge", "ground_rent", "council_tax"];
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(FIELDS)) {
     let v = data[k];
     if (v === "" || v === undefined) v = null;
     if (v != null && nums.includes(k)) {
       const n = Number(String(v).replace(/[^0-9.]/g, ""));
-      v = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+      v = Number.isFinite(n) && (n > 0 || k === "ground_rent") ? Math.round(n) : null;
     }
     if (v != null) out[k] = v;
   }

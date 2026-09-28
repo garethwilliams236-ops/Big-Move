@@ -44,6 +44,7 @@ export type Property = {
   service_charge: number | null;
   ground_rent: number | null;
   council_tax_band: string | null;
+  council_tax: number | null;
   epc: string | null;
   outside_space: string | null;
   parking: string | null;

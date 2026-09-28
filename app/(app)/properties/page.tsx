@@ -29,6 +29,7 @@ const fields: Field[] = [
   { key: "bathrooms", label: "Bathrooms", type: "number", half: true },
   { key: "tenure", label: "Tenure", suggestions: ["Freehold", "Leasehold", "Share of freehold"], half: true },
   { key: "council_tax_band", label: "Council tax band", half: true },
+  { key: "council_tax", label: "Council tax (£/yr)", type: "number", half: true },
   { key: "service_charge", label: "Service charge (£/yr)", type: "number", half: true },
   { key: "ground_rent", label: "Ground rent (£/yr)", type: "number", half: true },
   { key: "epc", label: "EPC rating", half: true },
@@ -47,6 +48,19 @@ const fields: Field[] = [
 const avg = (p: Property) => {
   const s = [p.gareth_score, p.kristin_score].filter((x): x is number => x != null);
   return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null;
+};
+const monthly = (p: Property) => {
+  const parts = [
+    { label: "Service charge", v: p.service_charge },
+    { label: "Ground rent", v: p.ground_rent },
+    { label: "Council tax", v: p.council_tax },
+  ].filter((x) => x.v != null && x.v > 0);
+  if (!parts.length) return null;
+  return {
+    total: Math.round(parts.reduce((s, x) => s + (x.v as number), 0) / 12),
+    parts: parts.map((x) => `${x.label} ${gbp(Math.round((x.v as number) / 12))}`),
+    missingCT: p.council_tax == null,
+  };
 };
 const perSqFt = (p: Property) => (p.asking_price && p.sq_ft ? Math.round(p.asking_price / p.sq_ft) : null);
 
@@ -120,7 +134,9 @@ export default function PropertiesPage() {
     { label: "Beds / baths", get: (p) => `${p.bedrooms ?? "—"} / ${p.bathrooms ?? "—"}` },
     { label: "Tenure", get: (p) => p.tenure ?? "—" },
     { label: "Service charge", get: (p) => (p.service_charge != null ? `${gbp(p.service_charge)}/yr` : "—") },
-    { label: "Council tax", get: (p) => p.council_tax_band ?? "—" },
+    { label: "Council tax", get: (p) => [p.council_tax_band && `Band ${p.council_tax_band}`, p.council_tax != null && `${gbp(p.council_tax)}/yr`].filter(Boolean).join(" · ") || "—" },
+    { label: "Ground rent", get: (p) => (p.ground_rent != null ? `${gbp(p.ground_rent)}/yr` : "—") },
+    { label: "Monthly running costs", get: (p) => { const m = monthly(p); return m ? <b>{gbp(m.total)}</b> : "—"; } },
     { label: "EPC", get: (p) => p.epc ?? "—" },
     { label: "Parking", get: (p) => p.parking ?? "—" },
     { label: "Outside", get: (p) => p.outside_space ?? "—" },
@@ -188,6 +204,23 @@ export default function PropertiesPage() {
                   p.tenure,
                 ].filter(Boolean).join(" · ")}
               </div>
+              {(() => {
+                const m = monthly(p);
+                return m ? (
+                  <div className="rounded-lg bg-accent-soft/60 px-2.5 py-1.5">
+                    <div className="text-sm">
+                      <b>{gbp(m.total)}</b>
+                      <span className="text-muted"> / month running costs</span>
+                    </div>
+                    <div className="text-xs text-muted">
+                      {m.parts.join(" · ")}
+                      {m.missingCT && " · council tax not entered"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted">Add service charge / council tax to see monthly costs</div>
+                );
+              })()}
               <div className="flex gap-3 text-sm mt-auto pt-2 border-t border-line">
                 <span>G <b>{p.gareth_score ?? "–"}</b></span>
                 <span>K <b>{p.kristin_score ?? "–"}</b></span>

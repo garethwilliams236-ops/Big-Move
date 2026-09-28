@@ -11,7 +11,7 @@ export default async function Overview() {
   const [{ data: tasks }, { data: items }, { data: props }, { data: name }] = await Promise.all([
     sb.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }),
     sb.from("possessions").select("destination,status,quantity"),
-    sb.from("properties").select("id,name,kind,status,asking_price,gareth_score,kristin_score,viewing_date").neq("status", "rejected"),
+    sb.from("properties").select("id,name,kind,status,asking_price,gareth_score,kristin_score,viewing_date,service_charge,ground_rent,council_tax").neq("status", "rejected"),
     sb.rpc("my_name"),
   ]);
   const T = (tasks ?? []) as Task[];
@@ -130,7 +130,14 @@ export default async function Overview() {
                 {top(k).map((p) => (
                   <li key={p.id} className="flex items-center justify-between py-2 text-sm">
                     <span>{p.name}</span>
-                    <span className="text-muted">{gbp(p.asking_price)}{avg(p) != null ? ` · ${avg(p)!.toFixed(1)}/10` : ""}</span>
+                    <span className="text-muted text-right">
+                      {gbp(p.asking_price)}
+                      {avg(p) != null ? ` · ${avg(p)!.toFixed(1)}/10` : ""}
+                      {(() => {
+                        const yr = (p.service_charge ?? 0) + (p.ground_rent ?? 0) + (p.council_tax ?? 0);
+                        return yr > 0 ? <span className="block text-xs">{gbp(Math.round(yr / 12))}/month running costs</span> : null;
+                      })()}
+                    </span>
                   </li>
                 ))}
               </ul>

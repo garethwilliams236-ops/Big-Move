@@ -95,6 +95,7 @@ create table if not exists public.properties (
   service_charge numeric,
   ground_rent numeric,
   council_tax_band text,
+  council_tax numeric,
   epc text,
   outside_space text,
   parking text,
