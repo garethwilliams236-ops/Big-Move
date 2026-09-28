@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 export type Field = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "number" | "date" | "time" | "select" | "checkbox" | "url";
+  type?: "text" | "textarea" | "number" | "date" | "time" | "select" | "checkbox" | "url" | "hidden";
   options?: { value: string; label: string }[];
   required?: boolean;
   half?: boolean;
@@ -23,6 +23,7 @@ export function EditDialog({
   onClose,
   onSave,
   onDelete,
+  topSlot,
 }: {
   open: boolean;
   title: string;
@@ -31,6 +32,7 @@ export function EditDialog({
   onClose: () => void;
   onSave: (values: Values) => Promise<boolean>;
   onDelete?: () => Promise<void>;
+  topSlot?: (values: Values, merge: (v: Values) => void) => React.ReactNode;
 }) {
   const [values, setValues] = useState<Values>(initial);
   const [busy, setBusy] = useState(false);
@@ -75,10 +77,12 @@ export function EditDialog({
           <h2 className="text-lg font-semibold">{title}</h2>
           <button type="button" className="btn-ghost" onClick={requestClose} aria-label="Close">✕</button>
         </div>
+        {topSlot?.(values, (v) => setValues((s) => ({ ...s, ...v })))}
         <div className="grid grid-cols-2 gap-3">
           {fields.map((f) => {
             const v = values[f.key];
             const cls = f.half ? "col-span-2 sm:col-span-1" : "col-span-2";
+            if (f.type === "hidden") return null;
             if (f.type === "checkbox")
               return (
                 <label key={f.key} className={`${cls} flex items-center gap-2 text-sm`}>

@@ -20,9 +20,9 @@ const fields: Field[] = [
   { key: "name", label: "Name / nickname", required: true },
   { key: "kind", label: "Type", type: "select", required: true, options: opts({ london: "London flat", country: "Country house" }), half: true },
   { key: "status", label: "Status", type: "select", required: true, options: opts(Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v.label]))), half: true },
+  { key: "link", label: "Listing link", type: "hidden" },
   { key: "address", label: "Address", half: true },
   { key: "area", label: "Area / village", half: true },
-  { key: "link", label: "Listing link", type: "url", placeholder: "https://…" },
   { key: "asking_price", label: "Asking price (£)", type: "number", half: true },
   { key: "sq_ft", label: "Size (sq ft)", type: "number", half: true },
   { key: "bedrooms", label: "Bedrooms", type: "number", half: true },
@@ -49,6 +49,51 @@ const avg = (p: Property) => {
   return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null;
 };
 const perSqFt = (p: Property) => (p.asking_price && p.sq_ft ? Math.round(p.asking_price / p.sq_ft) : null);
+
+function ImportFromLink({ values, merge }: { values: Record<string, unknown>; merge: (v: Record<string, unknown>) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const link = (values.link as string) ?? "";
+
+  async function run() {
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/property-import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: link }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setMsg({ ok: false, text: json.error ?? "Couldn't fetch details." });
+    const fields = json.fields as Record<string, unknown>;
+    // Don't overwrite a name you've already typed
+    if (values.name) delete fields.name;
+    merge(fields);
+    const n = Object.keys(fields).length;
+    setMsg({ ok: n > 0, text: n ? `Filled ${n} fields — check them before saving.` : "Nothing found on that page." });
+  }
+
+  return (
+    <div className="mb-4 rounded-xl bg-brand-soft/60 border border-brand/15 p-3">
+      <label className="label">Listing link</label>
+      <div className="flex gap-2">
+        <input
+          className="input"
+          type="url"
+          placeholder="Paste Rightmove, Zoopla or agent link…"
+          value={link}
+          onChange={(e) => merge({ link: e.target.value })}
+        />
+        <button type="button" className="btn-primary whitespace-nowrap" disabled={busy || !/^https?:\/\//.test(link)} onClick={run}>
+          {busy ? "Reading…" : "Fetch details"}
+        </button>
+      </div>
+      {busy && <p className="text-xs text-muted mt-1.5">Reading the listing — this can take 10–30 seconds.</p>}
+      {msg && <p className={`text-xs mt-1.5 ${msg.ok ? "text-brand" : "text-danger"}`}>{msg.text}</p>}
+    </div>
+  );
+}
 
 export default function PropertiesPage() {
   const { rows, loading, error, save, remove } = useTable<Property>("properties", "created_at", false);
@@ -190,6 +235,7 @@ export default function PropertiesPage() {
         onClose={() => { setAdding(false); setEditing(null); }}
         onSave={(v) => save(v as Partial<Property>, editing?.id)}
         onDelete={editing ? () => remove(editing.id) : undefined}
+        topSlot={(values, merge) => <ImportFromLink values={values} merge={merge} />}
       />
     </>
   );
