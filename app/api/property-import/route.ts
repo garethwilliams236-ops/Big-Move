@@ -85,7 +85,8 @@ export async function POST(req: Request) {
   if (!me) return NextResponse.json({ error: "Not authorised" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set in Vercel." }, { status: 500 });
 
-  const { url } = (await req.json()) as { url?: string };
+  const { url, debug } = (await req.json()) as { url?: string; debug?: boolean };
+  const diag: Record<string, unknown> = {};
   let target: URL;
   try {
     target = new URL(String(url ?? "").trim());
@@ -112,11 +113,15 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
       signal: AbortSignal.timeout(15000),
       redirect: "follow",
     });
+    diag.status = res.status;
     if (res.ok) {
       const html = await res.text();
+      diag.htmlLength = html.length;
+      diag.facts = keyFacts(html, html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")).slice(0, 4000);
       if (html.length > 2000) page = condense(html);
     }
-  } catch {
+  } catch (e) {
+    diag.fetchError = String(e);
     page = null;
   }
 
@@ -129,6 +134,7 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
         messages: [{ role: "user", content: `${instructions}\n\nListing URL: ${target}\n\nPage content:\n${page}` }],
       });
       answer = r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+      diag.firstPass = answer.slice(0, 2000);
     }
     // 2) If the site blocked us or nothing useful came back, let Claude fetch it.
     const parsed = answer ? parseJson(answer) : null;
@@ -142,6 +148,7 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
         messages: [{ role: "user", content: `Fetch ${target} and then:\n${instructions}` }],
       });
       const t = r.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+      diag.secondPass = t.slice(0, 2000);
       const second = parseJson(t);
       if (second) {
         // Merge: keep first-pass values, fill any gaps from the second pass
@@ -168,5 +175,5 @@ ${Object.entries(FIELDS).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`;
     }
     if (v != null) out[k] = v;
   }
-  return NextResponse.json({ fields: out });
+  return NextResponse.json(debug ? { fields: out, diag } : { fields: out });
 }
